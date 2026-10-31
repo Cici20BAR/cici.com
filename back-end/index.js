@@ -1,11 +1,15 @@
 
-const express = require('express')
-const morgan=require('morgan')
-const fs = require('fs')
-const path = require('path')
-const cors=require("cors")
+import express from 'express'
+import morgan from 'morgan'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import cors from 'cors'
+import Person from './model/schema_conn.js'
 
-require('dotenv').config()
+import 'dotenv/config'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app=express();
 morgan.token('body', (req, res) => {
     return JSON.stringify(req.body);
@@ -18,8 +22,13 @@ app.use(cors())
 const DB_PATH=path.join(__dirname,"db.json");
 const read_db=()=>JSON.parse(fs.readFileSync(DB_PATH,"utf-8"));
 const write_db=(data)=>fs.writeFileSync(DB_PATH,JSON.stringify(data));
-app.get("/api/persons",(req,res)=>{
-    res.json(read_db().persons);
+app.get("/api/persons", async (req,res,next)=>{
+    try {
+        const persons = await Person.find()
+        res.json(persons)
+    } catch (error) {
+        next(error)
+    }
 })
 app.get("/api/info",(req,res)=>{
 
@@ -45,48 +54,101 @@ app.get("/api/persons/:id",(req,res)=>{
         res.status(404).end()
     }
 })
-app.delete("/api/persons/:id",(req,res)=>{
-    const db=read_db();
-    const id=req.params.id;
-    const exist=db.persons.find((p)=>p.id===id)
-    if(!exist){
-        res.status(404).end()
-    }else{
-        db.persons=db.persons.filter((p)=>p.id!==id)
-        write_db(db)
-        res.status(204);
+app.put("/api/persons/:id", async (req, res, next) => {
+    try {
+        const { name, number } = req.body;
+        if (typeof name !== "string" || typeof number !== "string") {
+            return res.status(400).json({ error: "name or number missing" });
+        }
+
+        const cleanName = name.trim();
+        const cleanNumber = number.trim();
+
+        if (!cleanName || !cleanNumber) {
+            return res.status(400).json({ error: "name or number is empty" });
+        }
+
+        if (!/^\d[\d-]*$/.test(cleanNumber)) {
+            return res.status(400).json({ error: "number must contain only digits and dashes" });
+        }
+
+        const updatedPerson = await Person.findByIdAndUpdate(
+            req.params.id,
+            { name: cleanName, number: cleanNumber },
+            { new: true, runValidators: true }
+        )
+
+        if (!updatedPerson) {
+            return res.status(404).json({ error: "person not found" });
+        }
+
+        return res.json(updatedPerson)
+    } catch (error) {
+        next(error)
     }
 })
-app.post("/api/persons",(req,res)=>{
-    const{name,number}=req.body;
-    if (typeof name !== "string" || typeof number !== "string") {
-        return res.status(400).json({ error: "name or number missing" });
-    }
+app.delete("/api/persons/:id", async (req, res, next) => {
+  try {
+    await Person.findByIdAndDelete(req.params.id);
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+})
+app.post("/api/persons",async (req,res,next)=>{
+    try {
+        const{name,number}=req.body;
+        if (typeof name !== "string" || typeof number !== "string") {
+            return res.status(400).json({ error: "name or number missing" });
+        }
 
-    const cleanName = name.trim();
-    const cleanNumber = number.trim();
+        const cleanName = name.trim();
+        const cleanNumber = number.trim();
 
-    if (!cleanName || !cleanNumber) {
-        return res.status(400).json({ error: "name or number is empty" });
-    }
+        if (!cleanName || !cleanNumber) {
+            return res.status(400).json({ error: "name or number is empty" });
+        }
 
-    if (!/^\d[\d-]*$/.test(cleanNumber)) {
-        return res.status(400).json({ error: "number must contain only digits and dashes" });
-    }
-    const db=read_db()
-    const exists=db.persons.find((p)=>p.name.toLowerCase() === cleanName.toLowerCase())
-    if  (exists) {
-        return res.status(400).json({ error: "name must be unique" });
-    }
-    const newobj={        
-        id: Math.random().toString(36).slice(2, 13),
+        if (!/^\d[\d-]*$/.test(cleanNumber)) {
+            return res.status(400).json({ error: "number must contain only digits and dashes" });
+        }
+        const exists = await Person.findOne({ name: cleanName })
+            .collation({ locale: 'en', strength: 2 })
+        if (exists) {
+            return res.status(400).json({ error: "name must be unique" });
+        }
+        const person = new Person({
             name: cleanName,
-        number: cleanNumber
+            number: cleanNumber,
+        })
+
+        const savedPerson = await person.save()
+        return res.status(201).json(savedPerson)
+    } catch (error) {
+        next(error)
     }
-    db.persons.push(newobj)
-        write_db(db)
-  res.json(newobj)      
 })
+
+app.use((error, req, res, next) => {
+  console.error(error)
+
+  if (res.headersSent) {
+    return next(error)
+  }
+
+  const isMongooseClientError =
+    error.name === 'ValidationError' || error.name === 'CastError'
+  const requestedStatus = error.statusCode ?? error.status
+  const status = isMongooseClientError
+    ? 400
+    : Number.isInteger(requestedStatus) && requestedStatus >= 400 && requestedStatus < 500
+      ? requestedStatus
+      : 500
+  const message = status < 500 ? error.message : 'Internal server error'
+
+  res.status(status).json({ error: message })
+})
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
