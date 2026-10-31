@@ -55,6 +55,17 @@
   font-weight: 600;
 }
 
+.field-error,
+.form-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
+.form-error {
+  grid-column: 1 / -1;
+}
+
 .person-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -78,6 +89,10 @@
 .search-field input:focus {
   border-color: #2563eb;
   outline: 3px solid rgb(37 99 235 / 15%);
+}
+
+.person-form input[aria-invalid='true'] {
+  border-color: #b91c1c;
 }
 
 .form-actions {

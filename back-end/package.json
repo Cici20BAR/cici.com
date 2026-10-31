@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "build:ui": "rm -rf dist && cd .. && npm run build && cp -r dist back-end"
+    "build:ui": "npm --prefix .. run build && node --input-type=module -e \"import fs from 'node:fs'; fs.rmSync('dist', { recursive: true, force: true }); fs.cpSync('../dist', 'dist', { recursive: true });\""
   },
   "keywords": [],
   "author": "",

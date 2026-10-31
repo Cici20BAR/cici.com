@@ -16,7 +16,7 @@ morgan.token('body', (req, res) => {
 });
 
 app.use(express.json());
-app.use(express.static('dist'));
+app.use(express.static(path.join(__dirname, 'dist')));
 app.use(morgan(':method :url :res[content-length]  :body'))
 app.use(cors())
 const DB_PATH=path.join(__dirname,"db.json");
@@ -68,8 +68,12 @@ app.put("/api/persons/:id", async (req, res, next) => {
             return res.status(400).json({ error: "name or number is empty" });
         }
 
-        if (!/^\d[\d-]*$/.test(cleanNumber)) {
-            return res.status(400).json({ error: "number must contain only digits and dashes" });
+        if (cleanNumber.length < 8) {
+            return res.status(400).json({ error: "Numărul trebuie să aibă cel puțin 8 caractere." });
+        }
+
+        if (!/^\d{2,3}-\d+$/.test(cleanNumber)) {
+            return res.status(400).json({ error: "Folosește formatul XX-XXXXXXX sau XXX-XXXXXXX." });
         }
 
         const updatedPerson = await Person.findByIdAndUpdate(
@@ -109,8 +113,12 @@ app.post("/api/persons",async (req,res,next)=>{
             return res.status(400).json({ error: "name or number is empty" });
         }
 
-        if (!/^\d[\d-]*$/.test(cleanNumber)) {
-            return res.status(400).json({ error: "number must contain only digits and dashes" });
+        if (cleanNumber.length < 8) {
+            return res.status(400).json({ error: "Numărul trebuie să aibă cel puțin 8 caractere." });
+        }
+
+        if (!/^\d{2,3}-\d+$/.test(cleanNumber)) {
+            return res.status(400).json({ error: "Folosește formatul XX-XXXXXXX sau XXX-XXXXXXX." });
         }
         const exists = await Person.findOne({ name: cleanName })
             .collation({ locale: 'en', strength: 2 })

@@ -1,8 +1,24 @@
 import mongoose from 'mongoose'
 import 'dotenv/config'
   const personSchema = new mongoose.Schema({
-  name: String,
-  number: String,
+  name: {
+    type:String,
+    minlength:[3,'Numele trebuie să conțină cel puțin 3 caractere.'],
+    required:[true,'obligatoriu']
+  },
+  number: {
+    type: String,
+    minLength: [8, 'Numărul trebuie să aibă cel puțin 8 caractere.'], // Regula de lungime
+    required: [true, 'Numărul de telefon este obligatoriu.'],
+    validate:{
+      validator:function(v){
+        return /^\d{2,3}-\d+$/.test(v);
+      },
+      message: props => `${props.value} nu este un număr de telefon valid! Folosește formatul XX-XXXXXXX sau XXX-XXXXXXX.`
+
+
+    }
+  }
 })
 const url = process.env.MONGODB_URI
 mongoose.set("strictQuery",false)

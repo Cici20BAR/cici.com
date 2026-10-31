@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import personService from '../services/persons.js'
 import './App.css'
 
-const phoneNumberRegex = /^\d[\d-]*$/
+const phoneNumberRegex = /^\d{2,3}-\d+$/
 
 const Search = ({ value, onChange }) => (
   <div className="search-field">
@@ -17,16 +17,31 @@ const Search = ({ value, onChange }) => (
   </div>
 )
 
-const PersonForm = ({ name, number, onNameChange, onNumberChange, onSubmit }) => (
+const PersonForm = ({ name, number, errors, onNameChange, onNumberChange, onSubmit }) => (
   <form className="person-form" onSubmit={onSubmit}>
     <div className="form-field">
       <label htmlFor="person-name">Name</label>
-      <input id="person-name" value={name} onChange={onNameChange} />
+      <input
+        id="person-name"
+        value={name}
+        onChange={onNameChange}
+        aria-invalid={Boolean(errors.name)}
+        aria-describedby={errors.name ? 'person-name-error' : undefined}
+      />
+      {errors.name && <p className="field-error" id="person-name-error">{errors.name}</p>}
     </div>
     <div className="form-field">
       <label htmlFor="person-number">Number</label>
-      <input id="person-number" value={number} onChange={onNumberChange} />
+      <input
+        id="person-number"
+        value={number}
+        onChange={onNumberChange}
+        aria-invalid={Boolean(errors.number)}
+        aria-describedby={errors.number ? 'person-number-error' : undefined}
+      />
+      {errors.number && <p className="field-error" id="person-number-error">{errors.number}</p>}
     </div>
+    {errors.form && <p className="form-error" role="alert">{errors.form}</p>}
     <div className="form-actions">
       <button className="primary-button" type="submit">Add contact</button>
     </div>
@@ -54,6 +69,7 @@ const App = () => {
   const [search, setSearch] = useState('')
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
+  const [formErrors, setFormErrors] = useState({})
 
   useEffect(() => {
     personService
@@ -78,14 +94,24 @@ const handleDelete=async(id)=>{
     event.preventDefault()
     const trimmedName = newName.trim()
     const trimmedNumber = newNumber.trim()
+    const errors = {}
 
     if (!trimmedName) {
-      alert('Please insert a name!')
-      return
+      errors.name = 'Numele este obligatoriu.'
+    } else if (trimmedName.length < 3) {
+      errors.name = 'Numele trebuie să conțină cel puțin 3 caractere.'
     }
 
-    if (!phoneNumberRegex.test(trimmedNumber)) {
-      alert('Please insert a valid phone number using digits and hyphens!')
+    if (!trimmedNumber) {
+      errors.number = 'Numărul de telefon este obligatoriu.'
+    } else if (trimmedNumber.length < 8) {
+      errors.number = 'Numărul trebuie să aibă cel puțin 8 caractere.'
+    } else if (!phoneNumberRegex.test(trimmedNumber)) {
+      errors.number = 'Folosește formatul XX-XXXXXXX sau XXX-XXXXXXX.'
+    }
+
+    setFormErrors(errors)
+    if (Object.keys(errors).length > 0) {
       return
     }
 
@@ -99,23 +125,38 @@ const handleDelete=async(id)=>{
       )
       if (!confirmed) return
 
-      const updatedPerson = await personService.update(existingPerson.id, {
-        ...existingPerson,
-        number: trimmedNumber,
-      })
-      setPersons((currentPersons) =>
-        currentPersons.map((person) =>
-          person.id === updatedPerson.id ? updatedPerson : person
+      try {
+        const updatedPerson = await personService.update(existingPerson.id, {
+          ...existingPerson,
+          number: trimmedNumber,
+        })
+        setPersons((currentPersons) =>
+          currentPersons.map((person) =>
+            person.id === updatedPerson.id ? updatedPerson : person
+          )
         )
-      )
+      } catch (error) {
+        setFormErrors({
+          form: error.response?.data?.error || 'Nu s-a putut actualiza persoana. Încearcă din nou.',
+        })
+        return
+      }
     } else {
-      const returnedPerson = await personService.create({
-        name: trimmedName,
-        number: trimmedNumber,
-      })
-      setPersons((currentPersons) => [...currentPersons, returnedPerson])
+      try {
+        const returnedPerson = await personService.create({
+          name: trimmedName,
+          number: trimmedNumber,
+        })
+        setPersons((currentPersons) => [...currentPersons, returnedPerson])
+      } catch (error) {
+        setFormErrors({
+          form: error.response?.data?.error || 'Nu s-a putut salva persoana. Încearcă din nou.',
+        })
+        return
+      }
     }
 
+    setFormErrors({})
     setNewName('')
     setNewNumber('')
   }
@@ -142,8 +183,15 @@ const handleDelete=async(id)=>{
         <PersonForm
           name={newName}
           number={newNumber}
-          onNameChange={(event) => setNewName(event.target.value)}
-          onNumberChange={(event) => setNewNumber(event.target.value)}
+          errors={formErrors}
+          onNameChange={(event) => {
+            setNewName(event.target.value)
+            setFormErrors((current) => ({ ...current, name: '', form: '' }))
+          }}
+          onNumberChange={(event) => {
+            setNewNumber(event.target.value)
+            setFormErrors((current) => ({ ...current, number: '', form: '' }))
+          }}
           onSubmit={handleSubmit}
         />
 
