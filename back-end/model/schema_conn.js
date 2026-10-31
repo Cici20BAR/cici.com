@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 import 'dotenv/config'
-  const personSchema = new mongoose.Schema({
+const personSchema = new mongoose.Schema({
   name: {
     type:String,
     minlength:[3,'Numele trebuie să conțină cel puțin 3 caractere.'],
@@ -12,7 +12,7 @@ import 'dotenv/config'
     required: [true, 'Numărul de telefon este obligatoriu.'],
     validate:{
       validator:function(v){
-        return /^\d{2,3}-\d+$/.test(v);
+        return /^\d{2,3}-\d+$/.test(v)
       },
       message: props => `${props.value} nu este un număr de telefon valid! Folosește formatul XX-XXXXXXX sau XXX-XXXXXXX.`
 
@@ -21,8 +21,8 @@ import 'dotenv/config'
   }
 })
 const url = process.env.MONGODB_URI
-mongoose.set("strictQuery",false)
-mongoose.connect(url,{family:4}).then(() => console.log('connected to MongoDB'))
+mongoose.set('strictQuery',false)
+mongoose.connect(url,{ family:4 }).then(() => console.log('connected to MongoDB'))
   .catch((error) => console.log('error connecting to MongoDB:', error.message))
 
 personSchema.set('toJSON', {
