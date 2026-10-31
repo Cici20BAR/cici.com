@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const baseUrl = 'https://cici-com.onrender.com/persons'
+const baseUrl = '/api/persons'
 
 const getAll = () => {
   return axios.get(baseUrl).then((res) => res.data)
